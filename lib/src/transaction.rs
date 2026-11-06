@@ -17,7 +17,23 @@ pub(crate) struct YrsTransaction(pub(crate) RefCell<Option<TransactionMut<'stati
 unsafe impl Send for YrsTransaction {}
 unsafe impl Sync for YrsTransaction {}
 
-impl YrsTransaction {}
+impl YrsTransaction {
+    /// Spike addition: JSON of the named top-level maps, `{"name": {...}}`.
+    pub(crate) fn transaction_maps_json(&self, names: Vec<String>) -> String {
+        use yrs::{Any, types::ToJson};
+        let guard = self.transaction();
+        let txn = guard.as_ref().unwrap();
+        let mut out = std::collections::HashMap::new();
+        for n in names {
+            if let Some(m) = ReadTxn::get_map(txn, n.as_str()) {
+                out.insert(n, m.to_json(txn));
+            }
+        }
+        let mut buf = String::new();
+        Any::from(out).to_json(&mut buf);
+        buf
+    }
+}
 
 impl ReadTxn for YrsTransaction {
     fn store(&self) -> &Store {
@@ -79,7 +95,7 @@ impl YrsTransaction {
     pub(crate) fn transaction_apply_update(&self, update: Vec<u8>) -> Result<(), CodingError> {
         Update::decode_v1(update.as_slice())
             .map_err(|_e| CodingError::DecodingError)
-            .map(|u| self.transaction().as_mut().unwrap().apply_update(u))
+            .and_then(|u| self.transaction().as_mut().unwrap().apply_update(u).map_err(|_e| CodingError::DecodingError))
     }
 
     pub(crate) fn transaction_get_text(&self, name: String) -> Option<Arc<YrsText>> {

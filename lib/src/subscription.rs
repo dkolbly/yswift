@@ -12,3 +12,5 @@ impl YSubscription {
       }
   }
 }
+unsafe impl Send for YSubscription {}
+unsafe impl Sync for YSubscription {}

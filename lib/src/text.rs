@@ -19,7 +19,7 @@ impl AsRef<Branch> for YrsText {
     fn as_ref(&self) -> &Branch {
         //FIXME: after yrs v0.18 use logical references
         let branch = &*self.0.borrow();
-        unsafe { std::mem::transmute(branch.as_ref()) }
+        unsafe { std::mem::transmute::<&Branch, &Branch>(AsRef::<Branch>::as_ref(branch)) }
     }
 }
 

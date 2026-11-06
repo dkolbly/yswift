@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use yrs::branch::Branch;
 use yrs::Observable;
-use yrs::{types::Value, Any, Map, MapRef};
+use yrs::{Value, Any, Map, MapRef};
 use crate::doc::YrsCollectionPtr;
 
 pub(crate) struct YrsMap(RefCell<MapRef>);

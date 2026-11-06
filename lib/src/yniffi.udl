@@ -32,6 +32,7 @@ interface YrsTransaction {
   YrsText? transaction_get_text(string name);
   YrsArray? transaction_get_array(string name);
   YrsMap? transaction_get_map(string name);
+  string transaction_maps_json(sequence<string> names);
   YrsOrigin? origin();
   void free();
 };

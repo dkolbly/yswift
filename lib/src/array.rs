@@ -4,7 +4,7 @@ use crate::{change::YrsChange, error::CodingError};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::sync::Arc;
-use yrs::{types::Value, Any, Array, ArrayRef, Observable};
+use yrs::{Value, Any, Array, ArrayRef, Observable};
 use yrs::branch::Branch;
 use crate::doc::YrsCollectionPtr;
 
