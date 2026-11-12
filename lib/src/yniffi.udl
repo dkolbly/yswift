@@ -1,4 +1,9 @@
-namespace yniffi {};
+namespace yniffi {
+  /// Decodes a v1 update and returns the distinct (ascending) client ids of the
+  /// blocks it inserts.
+  [Throws=CodingError]
+  sequence<u64> update_v1_client_ids(sequence<u8> update);
+};
 
 [Error]
 enum CodingError {
@@ -6,8 +11,24 @@ enum CodingError {
   "DecodingError",
 };
 
+/// Called after each committed transaction with the v1 update it produced and the
+/// origin passed to `YrsDoc.transact`. The handler runs synchronously inside the
+/// commit (i.e. inside `YrsTransaction.free()`), so it must not open a transaction
+/// on the same doc.
+callback interface YrsUpdateObserver {
+    void call(sequence<u8> update, YrsOrigin? origin);
+};
+
 interface YrsDoc {
   constructor();
+
+  [Name=new_with_client_id]
+  constructor(u64 client_id);
+
+  u64 client_id();
+
+  [Throws=CodingError]
+  YSubscription observe_update_v1(YrsUpdateObserver delegate);
 
   [Throws=CodingError]
   sequence<u8> encode_diff_v1([ByRef] YrsTransaction tx, sequence<u8> state_vector);
@@ -52,6 +73,16 @@ interface YrsMap {
   boolean contains_key([ByRef] YrsTransaction tx, string key);
   void insert([ByRef] YrsTransaction tx, string key, string value);
 
+  /// Typed read. `Map` carries no payload (uniffi 0.27 cannot put objects in enum
+  /// variants); fetch the nested map with `get_map_value`.
+  YrsValue? get_value([ByRef] YrsTransaction tx, string key);
+  YrsMap? get_map_value([ByRef] YrsTransaction tx, string key);
+  void insert_string([ByRef] YrsTransaction tx, string key, string value);
+  void insert_binary([ByRef] YrsTransaction tx, string key, sequence<u8> value);
+  YrsMap insert_map([ByRef] YrsTransaction tx, string key);
+  boolean remove_key([ByRef] YrsTransaction tx, string key);
+  sequence<string> key_list([ByRef] YrsTransaction tx);
+
   [Throws=CodingError]
   string get([ByRef] YrsTransaction tx, string key);
   
@@ -63,6 +94,14 @@ interface YrsMap {
   void each([ByRef] YrsTransaction tx, YrsMapKVIteratorDelegate delegate);
 
   YSubscription observe(YrsMapObservationDelegate delegate);
+};
+
+[Enum]
+interface YrsValue {
+  Str(string value);
+  Bin(sequence<u8> value);
+  Map();
+  Other();
 };
 
 [Enum]

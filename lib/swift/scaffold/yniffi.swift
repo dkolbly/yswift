@@ -793,6 +793,8 @@ public func FfiConverterTypeYrsArray_lower(_ value: YrsArray) -> UnsafeMutableRa
 
 public protocol YrsDocProtocol : AnyObject {
     
+    func clientId()  -> UInt64
+    
     func encodeDiffV1(tx: YrsTransaction, stateVector: [UInt8]) throws  -> [UInt8]
     
     func getArray(name: String)  -> YrsArray
@@ -800,6 +802,8 @@ public protocol YrsDocProtocol : AnyObject {
     func getMap(name: String)  -> YrsMap
     
     func getText(name: String)  -> YrsText
+    
+    func observeUpdateV1(delegate: YrsUpdateObserver) throws  -> YSubscription
     
     func transact(origin: YrsOrigin?)  -> YrsTransaction
     
@@ -853,7 +857,22 @@ public convenience init() {
     }
 
     
+public static func newWithClientId(clientId: UInt64) -> YrsDoc {
+    return try!  FfiConverterTypeYrsDoc.lift(try! rustCall() {
+    uniffi_uniffi_yniffi_fn_constructor_yrsdoc_new_with_client_id(
+        FfiConverterUInt64.lower(clientId),$0
+    )
+})
+}
+    
 
+    
+open func clientId() -> UInt64 {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_uniffi_yniffi_fn_method_yrsdoc_client_id(self.uniffiClonePointer(),$0
+    )
+})
+}
     
 open func encodeDiffV1(tx: YrsTransaction, stateVector: [UInt8])throws  -> [UInt8] {
     return try  FfiConverterSequenceUInt8.lift(try rustCallWithError(FfiConverterTypeCodingError.lift) {
@@ -884,6 +903,14 @@ open func getText(name: String) -> YrsText {
     return try!  FfiConverterTypeYrsText.lift(try! rustCall() {
     uniffi_uniffi_yniffi_fn_method_yrsdoc_get_text(self.uniffiClonePointer(),
         FfiConverterString.lower(name),$0
+    )
+})
+}
+    
+open func observeUpdateV1(delegate: YrsUpdateObserver)throws  -> YSubscription {
+    return try  FfiConverterTypeYSubscription.lift(try rustCallWithError(FfiConverterTypeCodingError.lift) {
+    uniffi_uniffi_yniffi_fn_method_yrsdoc_observe_update_v1(self.uniffiClonePointer(),
+        FfiConverterCallbackInterfaceYrsUpdateObserver.lower(delegate),$0
     )
 })
 }
@@ -962,7 +989,23 @@ public protocol YrsMapProtocol : AnyObject {
     
     func get(tx: YrsTransaction, key: String) throws  -> String
     
+    func getMapValue(tx: YrsTransaction, key: String)  -> YrsMap?
+    
+    /**
+     * Typed read. `Map` carries no payload (uniffi 0.27 cannot put objects in enum
+     * variants); fetch the nested map with `get_map_value`.
+     */
+    func getValue(tx: YrsTransaction, key: String)  -> YrsValue?
+    
     func insert(tx: YrsTransaction, key: String, value: String) 
+    
+    func insertBinary(tx: YrsTransaction, key: String, value: [UInt8]) 
+    
+    func insertMap(tx: YrsTransaction, key: String)  -> YrsMap
+    
+    func insertString(tx: YrsTransaction, key: String, value: String) 
+    
+    func keyList(tx: YrsTransaction)  -> [String]
     
     func keys(tx: YrsTransaction, delegate: YrsMapIteratorDelegate) 
     
@@ -973,6 +1016,8 @@ public protocol YrsMapProtocol : AnyObject {
     func rawPtr()  -> YrsCollectionPtr
     
     func remove(tx: YrsTransaction, key: String) throws  -> String?
+    
+    func removeKey(tx: YrsTransaction, key: String)  -> Bool
     
     func values(tx: YrsTransaction, delegate: YrsMapIteratorDelegate) 
     
@@ -1052,6 +1097,28 @@ open func get(tx: YrsTransaction, key: String)throws  -> String {
 })
 }
     
+open func getMapValue(tx: YrsTransaction, key: String) -> YrsMap? {
+    return try!  FfiConverterOptionTypeYrsMap.lift(try! rustCall() {
+    uniffi_uniffi_yniffi_fn_method_yrsmap_get_map_value(self.uniffiClonePointer(),
+        FfiConverterTypeYrsTransaction.lower(tx),
+        FfiConverterString.lower(key),$0
+    )
+})
+}
+    
+    /**
+     * Typed read. `Map` carries no payload (uniffi 0.27 cannot put objects in enum
+     * variants); fetch the nested map with `get_map_value`.
+     */
+open func getValue(tx: YrsTransaction, key: String) -> YrsValue? {
+    return try!  FfiConverterOptionTypeYrsValue.lift(try! rustCall() {
+    uniffi_uniffi_yniffi_fn_method_yrsmap_get_value(self.uniffiClonePointer(),
+        FfiConverterTypeYrsTransaction.lower(tx),
+        FfiConverterString.lower(key),$0
+    )
+})
+}
+    
 open func insert(tx: YrsTransaction, key: String, value: String) {try! rustCall() {
     uniffi_uniffi_yniffi_fn_method_yrsmap_insert(self.uniffiClonePointer(),
         FfiConverterTypeYrsTransaction.lower(tx),
@@ -1059,6 +1126,41 @@ open func insert(tx: YrsTransaction, key: String, value: String) {try! rustCall(
         FfiConverterString.lower(value),$0
     )
 }
+}
+    
+open func insertBinary(tx: YrsTransaction, key: String, value: [UInt8]) {try! rustCall() {
+    uniffi_uniffi_yniffi_fn_method_yrsmap_insert_binary(self.uniffiClonePointer(),
+        FfiConverterTypeYrsTransaction.lower(tx),
+        FfiConverterString.lower(key),
+        FfiConverterSequenceUInt8.lower(value),$0
+    )
+}
+}
+    
+open func insertMap(tx: YrsTransaction, key: String) -> YrsMap {
+    return try!  FfiConverterTypeYrsMap.lift(try! rustCall() {
+    uniffi_uniffi_yniffi_fn_method_yrsmap_insert_map(self.uniffiClonePointer(),
+        FfiConverterTypeYrsTransaction.lower(tx),
+        FfiConverterString.lower(key),$0
+    )
+})
+}
+    
+open func insertString(tx: YrsTransaction, key: String, value: String) {try! rustCall() {
+    uniffi_uniffi_yniffi_fn_method_yrsmap_insert_string(self.uniffiClonePointer(),
+        FfiConverterTypeYrsTransaction.lower(tx),
+        FfiConverterString.lower(key),
+        FfiConverterString.lower(value),$0
+    )
+}
+}
+    
+open func keyList(tx: YrsTransaction) -> [String] {
+    return try!  FfiConverterSequenceString.lift(try! rustCall() {
+    uniffi_uniffi_yniffi_fn_method_yrsmap_key_list(self.uniffiClonePointer(),
+        FfiConverterTypeYrsTransaction.lower(tx),$0
+    )
+})
 }
     
 open func keys(tx: YrsTransaction, delegate: YrsMapIteratorDelegate) {try! rustCall() {
@@ -1095,6 +1197,15 @@ open func rawPtr() -> YrsCollectionPtr {
 open func remove(tx: YrsTransaction, key: String)throws  -> String? {
     return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeCodingError.lift) {
     uniffi_uniffi_yniffi_fn_method_yrsmap_remove(self.uniffiClonePointer(),
+        FfiConverterTypeYrsTransaction.lower(tx),
+        FfiConverterString.lower(key),$0
+    )
+})
+}
+    
+open func removeKey(tx: YrsTransaction, key: String) -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_uniffi_yniffi_fn_method_yrsmap_remove_key(self.uniffiClonePointer(),
         FfiConverterTypeYrsTransaction.lower(tx),
         FfiConverterString.lower(key),$0
     )
@@ -2366,6 +2477,81 @@ extension YrsUndoEventKind: Equatable, Hashable {}
 
 
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum YrsValue {
+    
+    case str(value: String
+    )
+    case bin(value: [UInt8]
+    )
+    case map
+    case other
+}
+
+
+public struct FfiConverterTypeYrsValue: FfiConverterRustBuffer {
+    typealias SwiftType = YrsValue
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> YrsValue {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .str(value: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .bin(value: try FfiConverterSequenceUInt8.read(from: &buf)
+        )
+        
+        case 3: return .map
+        
+        case 4: return .other
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: YrsValue, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .str(value):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(value, into: &buf)
+            
+        
+        case let .bin(value):
+            writeInt(&buf, Int32(2))
+            FfiConverterSequenceUInt8.write(value, into: &buf)
+            
+        
+        case .map:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .other:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+public func FfiConverterTypeYrsValue_lift(_ buf: RustBuffer) throws -> YrsValue {
+    return try FfiConverterTypeYrsValue.lift(buf)
+}
+
+public func FfiConverterTypeYrsValue_lower(_ value: YrsValue) -> RustBuffer {
+    return FfiConverterTypeYrsValue.lower(value)
+}
+
+
+
+extension YrsValue: Equatable, Hashable {}
+
+
+
 
 
 
@@ -2943,6 +3129,95 @@ extension FfiConverterCallbackInterfaceYrsUndoManagerObservationDelegate : FfiCo
     }
 }
 
+
+
+
+/**
+ * Called after each committed transaction with the v1 update it produced and the
+ * origin passed to `YrsDoc.transact`. The handler runs synchronously inside the
+ * commit (i.e. inside `YrsTransaction.free()`), so it must not open a transaction
+ * on the same doc.
+ */
+public protocol YrsUpdateObserver : AnyObject {
+    
+    func call(update: [UInt8], origin: YrsOrigin?) 
+    
+}
+
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceYrsUpdateObserver {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceYrsUpdateObserver = UniffiVTableCallbackInterfaceYrsUpdateObserver(
+        call: { (
+            uniffiHandle: UInt64,
+            update: RustBuffer,
+            origin: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceYrsUpdateObserver.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.call(
+                     update: try FfiConverterSequenceUInt8.lift(update),
+                     origin: try FfiConverterOptionTypeYrsOrigin.lift(origin)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            let result = try? FfiConverterCallbackInterfaceYrsUpdateObserver.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface YrsUpdateObserver: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitYrsUpdateObserver() {
+    uniffi_uniffi_yniffi_fn_init_callback_vtable_yrsupdateobserver(&UniffiCallbackInterfaceYrsUpdateObserver.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+fileprivate struct FfiConverterCallbackInterfaceYrsUpdateObserver {
+    fileprivate static var handleMap = UniffiHandleMap<YrsUpdateObserver>()
+}
+
+extension FfiConverterCallbackInterfaceYrsUpdateObserver : FfiConverter {
+    typealias SwiftType = YrsUpdateObserver
+    typealias FfiType = UInt64
+
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
 fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
@@ -3027,6 +3302,27 @@ fileprivate struct FfiConverterOptionTypeYrsText: FfiConverterRustBuffer {
     }
 }
 
+fileprivate struct FfiConverterOptionTypeYrsValue: FfiConverterRustBuffer {
+    typealias SwiftType = YrsValue?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeYrsValue.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeYrsValue.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
 fileprivate struct FfiConverterOptionTypeYrsOrigin: FfiConverterRustBuffer {
     typealias SwiftType = YrsOrigin?
 
@@ -3065,6 +3361,28 @@ fileprivate struct FfiConverterSequenceUInt8: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterUInt8.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+fileprivate struct FfiConverterSequenceUInt64: FfiConverterRustBuffer {
+    typealias SwiftType = [UInt64]
+
+    public static func write(_ value: [UInt64], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterUInt64.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [UInt64] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [UInt64]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterUInt64.read(from: &buf))
         }
         return seq
     }
@@ -3247,6 +3565,17 @@ public func FfiConverterTypeYrsOrigin_lower(_ value: YrsOrigin) -> RustBuffer {
     return FfiConverterTypeYrsOrigin.lower(value)
 }
 
+/**
+ * Decodes a v1 update and returns the distinct (ascending) client ids of the
+ * blocks it inserts.
+ */
+public func updateV1ClientIds(update: [UInt8])throws  -> [UInt64] {
+    return try  FfiConverterSequenceUInt64.lift(try rustCallWithError(FfiConverterTypeCodingError.lift) {
+    uniffi_uniffi_yniffi_fn_func_update_v1_client_ids(
+        FfiConverterSequenceUInt8.lower(update),$0
+    )
+})
+}
 
 private enum InitializationResult {
     case ok
@@ -3262,6 +3591,9 @@ private var initializationResult: InitializationResult {
     let scaffolding_contract_version = ffi_uniffi_yniffi_uniffi_contract_version()
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
+    }
+    if (uniffi_uniffi_yniffi_checksum_func_update_v1_client_ids() != 29349) {
+        return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_uniffi_yniffi_checksum_method_yrsarray_each() != 62231) {
         return InitializationResult.apiChecksumMismatch
@@ -3299,6 +3631,9 @@ private var initializationResult: InitializationResult {
     if (uniffi_uniffi_yniffi_checksum_method_yrsarray_to_a() != 10731) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsdoc_client_id() != 24396) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_uniffi_yniffi_checksum_method_yrsdoc_encode_diff_v1() != 16238) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3309,6 +3644,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_uniffi_yniffi_checksum_method_yrsdoc_get_text() != 33749) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsdoc_observe_update_v1() != 501) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_uniffi_yniffi_checksum_method_yrsdoc_transact() != 24297) {
@@ -3329,7 +3667,25 @@ private var initializationResult: InitializationResult {
     if (uniffi_uniffi_yniffi_checksum_method_yrsmap_get() != 30941) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsmap_get_map_value() != 3040) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsmap_get_value() != 61134) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_uniffi_yniffi_checksum_method_yrsmap_insert() != 48558) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsmap_insert_binary() != 24348) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsmap_insert_map() != 52856) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsmap_insert_string() != 567) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsmap_key_list() != 36453) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_uniffi_yniffi_checksum_method_yrsmap_keys() != 31471) {
@@ -3345,6 +3701,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_uniffi_yniffi_checksum_method_yrsmap_remove() != 48362) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsmap_remove_key() != 63721) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_uniffi_yniffi_checksum_method_yrsmap_values() != 31747) {
@@ -3458,6 +3817,9 @@ private var initializationResult: InitializationResult {
     if (uniffi_uniffi_yniffi_checksum_constructor_yrsdoc_new() != 51551) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_uniffi_yniffi_checksum_constructor_yrsdoc_new_with_client_id() != 59893) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_uniffi_yniffi_checksum_method_yrsarrayeachdelegate_call() != 23816) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3479,6 +3841,9 @@ private var initializationResult: InitializationResult {
     if (uniffi_uniffi_yniffi_checksum_method_yrsundomanagerobservationdelegate_call() != 35430) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_uniffi_yniffi_checksum_method_yrsupdateobserver_call() != 59271) {
+        return InitializationResult.apiChecksumMismatch
+    }
 
     uniffiCallbackInitYrsArrayEachDelegate()
     uniffiCallbackInitYrsArrayObservationDelegate()
@@ -3487,6 +3852,7 @@ private var initializationResult: InitializationResult {
     uniffiCallbackInitYrsMapObservationDelegate()
     uniffiCallbackInitYrsTextObservationDelegate()
     uniffiCallbackInitYrsUndoManagerObservationDelegate()
+    uniffiCallbackInitYrsUpdateObserver()
     return InitializationResult.ok
 }
 

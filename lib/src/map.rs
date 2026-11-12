@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use yrs::branch::Branch;
 use yrs::Observable;
-use yrs::{Value, Any, Map, MapRef};
+use yrs::{Value, Any, Map, MapRef, MapPrelim};
 use crate::doc::YrsCollectionPtr;
 
 pub(crate) struct YrsMap(RefCell<MapRef>);
@@ -66,7 +66,73 @@ IMPL order:
 - [ ] [observe, unobserve]
  */
 
+/// A typed view of a map value, for schemas that store strings, binary blobs and
+/// nested maps rather than JSON strings.
+pub(crate) enum YrsValue {
+    Str { value: String },
+    Bin { value: Vec<u8> },
+    Map,
+    /// Anything else (numbers, booleans, null, arrays, text, ...).
+    Other,
+}
+
 impl YrsMap {
+    pub(crate) fn get_value(&self, transaction: &YrsTransaction, key: String) -> Option<YrsValue> {
+        let binding = transaction.transaction();
+        let tx = binding.as_ref().unwrap();
+        let map = self.0.borrow();
+        let v = map.get(tx, key.as_str())?;
+        Some(match v {
+            Value::Any(Any::String(s)) => YrsValue::Str { value: s.to_string() },
+            Value::Any(Any::Buffer(b)) => YrsValue::Bin { value: b.to_vec() },
+            Value::YMap(_) => YrsValue::Map,
+            _ => YrsValue::Other,
+        })
+    }
+
+    pub(crate) fn get_map_value(&self, transaction: &YrsTransaction, key: String) -> Option<Arc<YrsMap>> {
+        let binding = transaction.transaction();
+        let tx = binding.as_ref().unwrap();
+        match self.0.borrow().get(tx, key.as_str())? {
+            Value::YMap(m) => Some(Arc::new(YrsMap::from(m))),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn insert_string(&self, transaction: &YrsTransaction, key: String, value: String) {
+        let mut binding = transaction.transaction();
+        let tx = binding.as_mut().unwrap();
+        self.0.borrow().insert(tx, key, Any::String(value.into()));
+    }
+
+    /// Stored as `Any::Buffer` (Yjs Uint8Array, Go `[]byte`).
+    pub(crate) fn insert_binary(&self, transaction: &YrsTransaction, key: String, value: Vec<u8>) {
+        let mut binding = transaction.transaction();
+        let tx = binding.as_mut().unwrap();
+        self.0.borrow().insert(tx, key, Any::Buffer(value.into()));
+    }
+
+    /// Inserts an empty nested map and returns the integrated map.
+    pub(crate) fn insert_map(&self, transaction: &YrsTransaction, key: String) -> Arc<YrsMap> {
+        let mut binding = transaction.transaction();
+        let tx = binding.as_mut().unwrap();
+        let nested: MapRef = self.0.borrow().insert(tx, key, MapPrelim::default());
+        Arc::new(YrsMap::from(nested))
+    }
+
+    /// Removes the key; returns whether it was present.
+    pub(crate) fn remove_key(&self, transaction: &YrsTransaction, key: String) -> bool {
+        let mut binding = transaction.transaction();
+        let tx = binding.as_mut().unwrap();
+        self.0.borrow().remove(tx, key.as_str()).is_some()
+    }
+
+    pub(crate) fn key_list(&self, transaction: &YrsTransaction) -> Vec<String> {
+        let binding = transaction.transaction();
+        let tx = binding.as_ref().unwrap();
+        self.0.borrow().keys(tx).map(|k| k.to_string()).collect()
+    }
+
     pub(crate) fn raw_ptr(&self) -> YrsCollectionPtr {
         let borrowed = self.0.borrow();
         YrsCollectionPtr::from(borrowed.as_ref())
@@ -452,4 +518,90 @@ mod tests {
         }
 
      */
+
+    use super::YrsValue;
+    use yrs::Any;
+
+    fn kids(map: &crate::YrsMap, txn: &crate::YrsTransaction) -> Vec<String> {
+        let mut k = map.key_list(txn);
+        k.sort();
+        k
+    }
+
+    #[test]
+    fn nested_map_round_trip() {
+        let doc = YrsDoc::new();
+        let comps = doc.get_map("components".to_string());
+        let txn = doc.transact(None);
+        let inner = comps.insert_map(&txn, "7".to_string());
+        inner.insert_string(&txn, "kind".to_string(), "rect".to_string());
+        inner.insert_binary(&txn, "pb".to_string(), vec![0, 1, 2, 255]);
+        match comps.get_value(&txn, "7".to_string()) {
+            Some(YrsValue::Map) => {
+                let map = comps.get_map_value(&txn, "7".to_string()).unwrap();
+                match map.get_value(&txn, "kind".to_string()) {
+                    Some(YrsValue::Str { value }) => assert_eq!(value, "rect"),
+                    _ => panic!("expected Str"),
+                }
+                match map.get_value(&txn, "pb".to_string()) {
+                    Some(YrsValue::Bin { value }) => assert_eq!(value, vec![0, 1, 2, 255]),
+                    _ => panic!("expected Bin"),
+                }
+                assert!(map.get_value(&txn, "nope".to_string()).is_none());
+            }
+            _ => panic!("expected Map"),
+        }
+        comps.insert(&txn, "n".to_string(), "5".to_string());
+        assert!(matches!(comps.get_value(&txn, "n".to_string()), Some(YrsValue::Other)));
+    }
+
+    #[test]
+    fn binary_is_any_buffer() {
+        use yrs::{Map, ReadTxn, Value};
+        let doc = YrsDoc::new();
+        let m = doc.get_map("m".to_string());
+        let txn = doc.transact(None);
+        m.insert_binary(&txn, "b".to_string(), vec![9, 8, 7]);
+        let guard = txn.transaction();
+        let raw = guard.as_ref().unwrap();
+        let ymap = ReadTxn::get_map(raw, "m").unwrap();
+        match ymap.get(raw, "b") {
+            Some(Value::Any(Any::Buffer(b))) => assert_eq!(&*b, &[9, 8, 7]),
+            other => panic!("not a buffer: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn remove_key_and_key_list() {
+        let doc = YrsDoc::new();
+        let m = doc.get_map("m".to_string());
+        let txn = doc.transact(None);
+        m.insert_string(&txn, "a".to_string(), "1".to_string());
+        m.insert_string(&txn, "b".to_string(), "2".to_string());
+        assert_eq!(kids(&m, &txn), vec!["a", "b"]);
+        assert!(m.remove_key(&txn, "a".to_string()));
+        assert!(!m.remove_key(&txn, "a".to_string()));
+        assert_eq!(kids(&m, &txn), vec!["b"]);
+    }
+
+    #[test]
+    fn nested_update_interop() {
+        let a = YrsDoc::new_with_client_id(42);
+        let am = a.get_map("components".to_string());
+        let txn = a.transact(None);
+        let inner = am.insert_map(&txn, "1".to_string());
+        inner.insert_string(&txn, "s".to_string(), "hello".to_string());
+        inner.insert_binary(&txn, "b".to_string(), vec![1, 2, 3]);
+        let upd = txn.transaction_encode_state_as_update();
+        txn.free();
+
+        let b = YrsDoc::new();
+        let bm = b.get_map("components".to_string());
+        let t2 = b.transact(None);
+        t2.transaction_apply_update(upd).unwrap();
+        assert!(matches!(bm.get_value(&t2, "1".to_string()), Some(YrsValue::Map)));
+        let map = bm.get_map_value(&t2, "1".to_string()).unwrap();
+        assert!(matches!(map.get_value(&t2, "s".to_string()), Some(YrsValue::Str { value }) if value == "hello"));
+        assert!(matches!(map.get_value(&t2, "b".to_string()), Some(YrsValue::Bin { value }) if value == vec![1,2,3]));
+    }
 }
